@@ -9,11 +9,11 @@
 #### 1.1.2 Create Workspace
 
 ```
-    mkdir -p quad_nav2_ws/src
-    cd quad_nav2_ws/src
+mkdir -p quad_nav2_ws/src
+cd quad_nav2_ws/src
 ```
 ```
-    git clone --recursive https://github.com/XjuHurricaneQuadVision/quadruped_hurricane2026_nav2
+git clone --recursive https://github.com/XjuHurricaneQuadVision/quadruped_hurricane2026_nav2
 ```
 
 #### 1.1.3 build
@@ -26,3 +26,5 @@
 - https://github.com/Sayantani-Bhattacharya/unitree_go2_nav
 - https://github.com/h-naderi/unitree-go2-slam-nav2
 - https://github.com/chvmp/champ
+- https://github.com/chvmp/robots.git
+- https://github.com/chvmp/champ_teleop.git
