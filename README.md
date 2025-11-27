@@ -4,7 +4,7 @@
 
 - Ubuntu 22.04
 - ROS2:humble
-- Navigation2
+- Nav2
 
 #### 1.1.2 Create Workspace
 
@@ -12,6 +12,12 @@
     mkdir -p quad_nav2_ws/src
     cd quad_nav2_ws/src
 ```
+```
+    git clone --recursive https://github.com/XjuHurricaneQuadVision/quadruped_hurricane2026_nav2
+```
+
+#### 1.1.3 build
+
 
 
 # Thanks for Giving me a lot of Ideas
