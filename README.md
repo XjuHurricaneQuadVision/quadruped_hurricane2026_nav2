@@ -1,1 +1,1 @@
-# ROBONCON2026 XJU Hurricane Nav2
+# ROBONCON2026 XJU Hurricane Quadruped SLAM && Nav2
