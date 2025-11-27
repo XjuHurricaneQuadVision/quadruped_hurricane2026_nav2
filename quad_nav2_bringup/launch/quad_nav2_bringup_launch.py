@@ -1,21 +1,7 @@
-# Copyright 2025 Jackson Huang
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, RegisterEventHandler
+from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, RegisterEventHandler, LogInfo
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, Command, PathJoinSubstitution
 from launch.event_handlers import OnProcessExit
@@ -27,34 +13,39 @@ def generate_launch_description():
     # ========================================================================
     # 1. 配置变量与路径
     # ========================================================================
-    # TODO: 请修改为你的包名
-    package_name = 'robocon_nav' 
+    # 定义你的两个包名
+    bringup_pkg_name = 'quad_nav2_bringup'
+    descr
     
-    pkg_share = get_package_share_directory(package_name)
+    bringup_pkg_share = get_package_share_directory('quad_nav2_bringup')
+    description_pkg_share = get_package_share_directory('go2_description')
+    
     nav2_bringup_dir = get_package_share_directory('nav2_bringup')
     gazebo_ros_dir = get_package_share_directory('gazebo_ros')
 
     # 路径设定
-    # 假设你的 xacro 文件叫 robot.xacro，放在 urdf 文件夹下
-    xacro_file = os.path.join(pkg_share, 'urdf', 'robot.xacro')
+    # [关键修改] 指向 go2_description 包下的 xacro 文件
+    xacro_file = os.path.join(description_pkg_share, 'xacro', 'robot.xacro')
     
-    # 假设你的参数文件和地图位置
-    params_file_path = os.path.join(pkg_share, 'config', 'nav2_params.yaml')
-    map_file_path = os.path.join(pkg_share, 'maps', 'map.yaml')
-    rviz_config_path = os.path.join(pkg_share, 'config', 'nav.rviz')
+    # 配置文件路径
+    params_file_path = os.path.join(bringup_pkg_share, 'config', 'nav2_params.yaml')
+    # [关键修改] 假设你补充了 empty_map.yaml
+    map_file_path = os.path.join(bringup_pkg_share, 'maps', 'empty_map.yaml') 
+    # [关键修改] 假设你补充了 nav.rviz
+    rviz_config_path = os.path.join(bringup_pkg_share, 'config', 'nav.rviz') 
     
-    # Gazebo 世界文件 (如果没有，就用空的)
+    # Gazebo 世界文件 (默认为空)
     world_file_path = LaunchConfiguration('world')
 
     # ========================================================================
-    # 2. 声明启动参数 (Arguments)
+    # 2. 声明启动参数
     # ========================================================================
     declare_use_sim_time = DeclareLaunchArgument(
         'use_sim_time', default_value='true',
         description='Use simulation (Gazebo) clock if true')
 
     declare_world = DeclareLaunchArgument(
-        'world', default_value='', # 默认为空，即加载 Gazebo 空世界
+        'world', default_value='', 
         description='Full path to world file to load')
 
     declare_map = DeclareLaunchArgument(
@@ -68,15 +59,19 @@ def generate_launch_description():
     # ========================================================================
     # 3. 处理机器人描述 (Xacro -> URDF)
     # ========================================================================
-    # 使用 xacro 库解析文件
+    # 检查文件是否存在，防止报错
+    if not os.path.exists(xacro_file):
+        return LaunchDescription([LogInfo(msg=f"Error: Xacro file not found at {xacro_file}")])
+
+    # 解析 Xacro
     doc = xacro.process_file(xacro_file)
     robot_description_config = doc.toxml()
     
     # ========================================================================
-    # 4. 定义节点 (Nodes)
+    # 4. 定义节点
     # ========================================================================
 
-    # A. 启动 Gazebo 服务器 (gzserver)
+    # A. 启动 Gazebo
     start_gazebo_server = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(gazebo_ros_dir, 'launch', 'gzserver.launch.py')
@@ -84,15 +79,13 @@ def generate_launch_description():
         launch_arguments={'world': world_file_path}.items()
     )
 
-    # B. 启动 Gazebo 客户端 (gzclient - 图形界面)
     start_gazebo_client = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(gazebo_ros_dir, 'launch', 'gzclient.launch.py')
         )
     )
 
-    # C. Robot State Publisher (发布 TF)
-    # 仿真中必须开启 use_sim_time
+    # B. Robot State Publisher
     node_robot_state_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
@@ -103,19 +96,18 @@ def generate_launch_description():
         }]
     )
 
-    # D. Spawn Entity (把机器人放进 Gazebo)
-    # -z 0.5 是为了让机器人稍微悬空，防止一开始就卡在地里
+    # C. Spawn Robot
+    # 将机器人生成在 Gazebo 原点上方 0.35m 处
     spawn_robot = Node(
         package='gazebo_ros',
         executable='spawn_entity.py',
-        arguments=['-entity', 'my_quadruped', 
+        arguments=['-entity', 'go2', 
                    '-topic', 'robot_description',
-                   '-x', '0.0', '-y', '0.0', '-z', '0.5'],
+                   '-x', '0.0', '-y', '0.0', '-z', '0.35'],
         output='screen'
     )
 
-    # E. 启动 Nav2 Bringup (核心导航)
-    # 使用官方的 bringup_launch，它会自动启动 AMCL, MapServer, Controller, Planner 等
+    # D. Nav2 Bringup
     bringup_nav2 = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(nav2_bringup_dir, 'launch', 'bringup_launch.py')
@@ -128,7 +120,9 @@ def generate_launch_description():
         }.items()
     )
 
-    # F. 启动 Rviz2
+    # E. Rviz2
+    # 如果 config 下还没有 nav.rviz，可以先注释掉 arguments 这一行，
+    # 启动后手动配置好再保存到该路径。
     start_rviz = Node(
         package='rviz2',
         executable='rviz2',
@@ -138,7 +132,7 @@ def generate_launch_description():
     )
 
     # ========================================================================
-    # 5. 组装 LaunchDescription
+    # 5. 组装
     # ========================================================================
     return LaunchDescription([
         declare_use_sim_time,
@@ -151,7 +145,7 @@ def generate_launch_description():
         node_robot_state_publisher,
         spawn_robot,
         
-        # 这里的逻辑是：等机器人生成好了，再启动导航和Rviz，防止报错
+        # 确保机器人生成后再启动导航
         RegisterEventHandler(
             event_handler=OnProcessExit(
                 target_action=spawn_robot,
