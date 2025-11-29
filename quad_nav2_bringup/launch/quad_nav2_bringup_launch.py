@@ -16,7 +16,7 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, RegisterEventHandler, LogInfo
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, Command, PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch.event_handlers import OnProcessExit
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
@@ -30,18 +30,17 @@ def generate_launch_description():
     description_pkg_dir = get_package_share_directory('hurricane_description')
 
     nav2_bringup_dir = get_package_share_directory('nav2_bringup')
-    gazebo_ros_dir = get_package_share_directory('gazebo_ros')
 
     # 路径设定
-    xacro_file = os.path.join(description_pkg_dir, 'xacro', 'robot.xacro')
+    xacro_file = os.path.join(description_pkg_dir, 'urdf', 'robot.xacro')
 
     # 配置文件路径
     params_file_path = os.path.join(bringup_pkg_dir, 'config', 'nav2_params.yaml')
-    map_file_path = os.path.join(bringup_pkg_dir, 'maps', 'empty_map.yaml') 
+    map_file_path = os.path.join(bringup_pkg_dir, 'maps', 'room.yaml')
     rviz_config_path = os.path.join(bringup_pkg_dir, 'config', 'nav2.rviz')
-    
-    # Gazebo 世界文件
-    world_file_path = LaunchConfiguration('world')
+
+    # Gazebo 世界文件默认路径
+    default_world_path = os.path.join(bringup_pkg_dir, 'worlds', 'big.world')
 
     # ========================================================================
     # 2. 声明启动参数
@@ -51,7 +50,7 @@ def generate_launch_description():
         description='Use simulation (Gazebo) clock if true')
 
     declare_world = DeclareLaunchArgument(
-        'world', default_value='', 
+        'world', default_value=default_world_path,
         description='Full path to world file to load')
 
     declare_map = DeclareLaunchArgument(
@@ -69,42 +68,50 @@ def generate_launch_description():
         return LaunchDescription([LogInfo(msg=f"Error: Xacro file not found at {xacro_file}")])
     doc = xacro.process_file(xacro_file)
     robot_description_config = doc.toxml()
-    
+
     # ========================================================================
-    # 4. 定义节点
+    # 4. 定义节点 - 使用 IncludeLaunchDescription 启动 Gazebo（像工作的文件一样）
     # ========================================================================
-    start_gazebo_server = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(gazebo_ros_dir, 'launch', 'gzserver.launch.py')
-        ),
-        launch_arguments={'world': world_file_path}.items()
+
+    # 启动 Gazebo（使用官方 launch 文件）
+    start_gazebo = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            PathJoinSubstitution([FindPackageShare('gazebo_ros'), 'launch', 'gazebo.launch.py'])
+        ]),
+        launch_arguments={
+            'world': LaunchConfiguration('world'),
+            'verbose': 'true'
+        }.items()
     )
 
-    start_gazebo_client = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(gazebo_ros_dir, 'launch', 'gzclient.launch.py')
-        )
-    )
-
+    # Robot State Publisher
     node_robot_state_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
         output='screen',
         parameters=[{
             'robot_description': robot_description_config,
-            'use_sim_time': True
+            'use_sim_time': True,
+            'publish_frequency': 20.0,
+            'use_tf_static': True
         }]
     )
 
+    # 生成机器人到 Gazebo
     spawn_robot = Node(
         package='gazebo_ros',
         executable='spawn_entity.py',
-        arguments=['-entity', 'go2', 
-                   '-topic', 'robot_description',
-                   '-x', '0.0', '-y', '0.0', '-z', '0.35'], # 机器人生成在 Gazebo 原点上方 0.35m 处
+        arguments=[
+            '-entity', 'hurricane',
+            '-topic', 'robot_description',
+            '-x', '0.0',
+            '-y', '0.0',
+            '-z', '0.35'
+        ],
         output='screen'
     )
 
+    # Nav2 导航栈
     bringup_nav2 = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(nav2_bringup_dir, 'launch', 'bringup_launch.py')
@@ -117,9 +124,11 @@ def generate_launch_description():
         }.items()
     )
 
+    # RViz
     start_rviz = Node(
         package='rviz2',
         executable='rviz2',
+        name='rviz2',
         arguments=['-d', rviz_config_path],
         parameters=[{'use_sim_time': True}],
         output='screen'
@@ -131,11 +140,10 @@ def generate_launch_description():
         declare_map,
         declare_params,
 
-        start_gazebo_server,
-        start_gazebo_client,
+        start_gazebo,
         node_robot_state_publisher,
         spawn_robot,
-        
+
         # 确保机器人生成后再启动导航
         RegisterEventHandler(
             event_handler=OnProcessExit(

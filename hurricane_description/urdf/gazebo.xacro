@@ -8,12 +8,12 @@
             <odometryTopic>odom</odometryTopic>
             <odometryFrame>odom</odometryFrame>
             <odometryRate>20.0</odometryRate>
-            <robotBaseFrame>base</robotBaseFrame>
+            <robotBaseFrame>base_link</robotBaseFrame>
         </plugin>
     </gazebo>
 
     <!-- 仿真雷达 -->
-    <gazebo reference="base_link">
+    <gazebo reference="trunk">
         <sensor name="lidar_sensor" type="ray">
             <pose>0 0 0.2 0 0 0</pose>
             <visualize>true</visualize>

@@ -1,0 +1,21 @@
+# VSCode settings
+.vscode/
+
+# ROS log files
+log/
+
+# Build and install directories (common in ROS workspaces)
+build/
+install/
+devel/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Backup files
+*~
+*.swp
+*.swo
