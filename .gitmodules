@@ -10,3 +10,12 @@
 	path = champ_teleop
 	url = https://github.com/chvmp/champ_teleop.git
 	branch = ros2
+[submodule "pointcloud_to_laserscan"]
+	path = pointcloud_to_laserscan
+	url = https://github.com/XjuHurricaneQuadVision/pointcloud_to_laserscan.git
+[submodule "point_lio"]
+	path = point_lio
+	url = https://github.com/XjuHurricaneQuadVision/point_lio.git
+[submodule "livox_ros_driver2"]
+	path = livox_ros_driver2
+	url = https://github.com/XjuHurricaneQuadVision/livox_ros_driver2.git
