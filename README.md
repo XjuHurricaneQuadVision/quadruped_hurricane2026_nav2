@@ -19,7 +19,6 @@ git clone --recursive https://github.com/XjuHurricaneQuadVision/quadruped_hurric
 #### 1.1.3 build
 
 
-
 # Thanks for Giving me a lot of Ideas
 
 - https://github.com/chvmp/champ
